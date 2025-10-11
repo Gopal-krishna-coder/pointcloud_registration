@@ -148,20 +148,4 @@ transformation:
 
 ![reg](./resources/reg.png)
 
-----
-
-rosservice call /pointcloud_registration_node/reload_pcds "{}"
-
-rosservice call /pointcloud_registration_node/register "target_cloud_name: 'my_target_scene'
-voxel_size: 0.05
-max_correspondence_distance: 0.1"
-
-rosservice call /pointcloud_accumulator_node/save_cloud "filename: 'my_target_scene'"
-
-
-rosservice call /pointcloud_registration_node/register "target_cloud_name: 'demo'
-voxel_size: 0.1
-max_correspondence_distance: 0.1"
-
-
 

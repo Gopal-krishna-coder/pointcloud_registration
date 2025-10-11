@@ -128,22 +128,21 @@ Call the service and pass the target point cloud file name as the `target_cloud_
 调用服务并将 target 点云文件名作为参数 `target_cloud_name` 传入：
 
 ```bash
-(o3d) $ rosservice call /pointcloud_registration_node/register "{target_cloud_name: 'demo', voxel_size: 0.
-0, max_correspondence_distance: 0.0, crop_min_x: 0.0,
+(o3d) $ rosservice call /pointcloud_registration_node/register "{target_cloud_name: 'demo', voxel_size: 0.0, max_correspondence_distance: 0.0, crop_min_x: 0.0,
   crop_max_x: 0.0, crop_min_y: 0.0, crop_max_y: 0.0, crop_min_z: 0.0, crop_max_z: 0.0}" 
-
+  
 success: True
-message: "Registration successful with fitness score: 1.0000"
+message: "Registration successful with fitness score: 0.9940"
 transformation: 
   translation: 
-    x: 0.006389349122693494
-    y: -0.006757631950908473
-    z: -0.0006840062538875302
+    x: -0.060025553054253854
+    y: 0.03020713014616973
+    z: -0.00028744602569820155
   rotation: 
-    x: -0.0033989149192629525
-    y: -0.0011690680752921507
-    z: -0.0024111690798775294
-    w: 0.999990633416571
+    x: 0.019895079499856496
+    y: -0.06213543298323554
+    z: -0.0037846292055216057
+    w: 0.9978622401721878
 ```
 
 ![reg](./resources/reg.png)

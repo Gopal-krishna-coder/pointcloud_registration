@@ -4,6 +4,15 @@ This package implements the ROS point cloud registration service node based on o
 
 这个功能包是基于 open3d 实现了 ROS 点云配准服务节点。
 
+The functionality of this repository has been tested in the following alignments:
+
+该仓库的功能在以下配准中通过了测试：
+
+|Device|Plantform|OS|ROS|
+|--|--|--|--|
+|Nvidia Jetson Orin| Arm64 | Ubuntu 20.04 | Noetic|
+
+
 ---
 
 # Contributors

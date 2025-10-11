@@ -115,9 +115,9 @@ message: "Successfully saved point cloud with 6705 points to /home/orin/Desktop/
 ---
 ## Step6. Use Point Cloud Register
 
-Before executing the script, you need to make sure that your target point cloud file is in `pcd_files` folder. Use the following command to start the script and perform point cloud registration:
+Before executing the script, you need to make sure that your target point cloud file is in the `pcd_files` folder. If you need to save the target and source point clouds currently in use for debugging, you can modify the `write_file` parameter in the launch file.
 
-在执行脚本之前需要确保 `pcd_files` 文件夹中有你的 target 点云文件。使用下面的命令启动脚本并，执行点云配准：
+在执行脚本之前需要确保 `pcd_files` 文件夹中有你的 target 点云文件，如果你需要保存当前正在使用的 target 和 source 点云用于 debug，可以修改 launch 文件中的 `write_file` 参数。
 
 ```bash
 (o3d) $ roslaunch pointcloud_registration registration.launch

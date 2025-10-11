@@ -1,0 +1,12 @@
+<launch>
+    <arg name="pcd_path" default="$(find pointcloud_registration)/pcd_files" />
+    <arg name="pointcloud_topic" default="/camera/depth_registered/points" />
+
+    <node name="pointcloud_accumulator_node" pkg="pointcloud_registration" type="cloud_accumulator_node.py" output="screen">
+        <param name="save_path" value="$(arg pcd_path)" />
+        <param name="pointcloud_topic" value="$(arg pointcloud_topic)" />
+        <param name="accumulation_seconds" value="1.0" />
+        <param name="voxel_size" value="0.01" />
+    </node>
+    
+</launch>

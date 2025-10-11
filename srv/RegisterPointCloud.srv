@@ -1,0 +1,18 @@
+# Request
+string target_cloud_name
+float32 voxel_size
+float32 max_correspondence_distance
+
+# Optional Crop Box
+# If all are 0.0 (default), a [-1, 1] box will be used.
+float32 crop_min_x
+float32 crop_max_x
+float32 crop_min_y
+float32 crop_max_y
+float32 crop_min_z
+float32 crop_max_z
+---
+# Response
+bool success
+string message
+geometry_msgs/Transform transformation

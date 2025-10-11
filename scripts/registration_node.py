@@ -42,6 +42,7 @@ class PointCloudRegistrationNode:
         self.pcd_path = rospy.get_param('~pcd_path', 'pcd_files')
         self.pointcloud_topic = rospy.get_param('~pointcloud_topic', '/camera/depth_registered/points')
         self.write_file = rospy.get_param("~write_file", False)
+        self.fitness = rospy.get_param("~fitness", 0.6)
         self.pub_frame_id = rospy.get_param("~pub_frame_id", "map")
 
         self.target_clouds = {}
@@ -208,7 +209,7 @@ class PointCloudRegistrationNode:
             full_path = os.path.join(self.pcd_path, "target.pcd")
             open3d.io.write_point_cloud(full_path, target_down)
 
-        if icp_result.fitness < 0.6:
+        if icp_result.fitness < self.fitness:
             message = "ICP fitness score is too low ({}). Registration may be inaccurate.".format(icp_result.fitness)
             rospy.logwarn(message)
             response.success = False

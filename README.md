@@ -147,5 +147,3 @@ transformation:
 ```
 
 ![reg](./resources/reg.png)
-
-

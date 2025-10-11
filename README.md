@@ -94,7 +94,7 @@ If you do not meet the above conditions, run the following node to collect the p
 如果上述条件你都不具备，那么运行下面的节点来采集当前帧点云：
 
 ```bash
-(conda) $ roslaunch pointcloud_registration allocate_pcd.launch
+(o3d) $ roslaunch pointcloud_registration allocate_pcd.launch
 ```
 
 Call the service and pass in the parameters. If you don't modify the `min max` parameters, the bounding box range will be used as `x=[-1.0,1.0], y=[-1.0,1.0], z=[-1.0,1.0]`:
@@ -102,7 +102,7 @@ Call the service and pass in the parameters. If you don't modify the `min max` p
 调用服务并传入参数，如果你不修改 `min max` 参数则会使用 bounding box 范围为 `x=[-1.0,1.0], y=[-1.0,1.0], z=[-1.0,1.0]`：
 
 ```bash
-(conda) $ rosservice call /pointcloud_accumulator_node/save_cloud "{filename: 'demo', min_x: 0.0, max_x: 0.
+(o3d) $ rosservice call /pointcloud_accumulator_node/save_cloud "{filename: 'demo', min_x: 0.0, max_x: 0.
 0, min_y: 0.0, max_y: 0.0, min_z: 0.0, max_z: 0.0}" 
 
 success: True
@@ -130,7 +130,7 @@ Call the service and pass the target point cloud file name as the `target_cloud_
 ```bash
 (o3d) $ rosservice call /pointcloud_registration_node/register "{target_cloud_name: 'demo', voxel_size: 0.0, max_correspondence_distance: 0.0, crop_min_x: 0.0,
   crop_max_x: 0.0, crop_min_y: 0.0, crop_max_y: 0.0, crop_min_z: 0.0, crop_max_z: 0.0}" 
-  
+
 success: True
 message: "Registration successful with fitness score: 0.9940"
 transformation: 

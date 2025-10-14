@@ -35,7 +35,7 @@ Enter your workspace and pull the repository. Assume your workspace is `reg_ws`:
 
 ```bash
 $ cd reg_ws/src
-$ git clone xxx
+$ git clone https://github.com/GaohaoZhou-ops/pointcloud_registration.git
 ```
 
 ---

@@ -46,12 +46,16 @@ class PointCloudRegistrationNode:
         self.pub_frame_id = rospy.get_param("~pub_frame_id", "map")
 
         self.target_clouds = {}
-        self.accumulated_clouds_list = [] # 用于存储累积的点云
+        self.accumulated_clouds_list = []
 
         self.pub_target = rospy.Publisher('~target_cloud', PointCloud2, queue_size=1, latch=True)
         self.pub_source = rospy.Publisher('~source_cloud', PointCloud2, queue_size=1, latch=True)
         self.pub_aligned = rospy.Publisher('~aligned_cloud', PointCloud2, queue_size=1, latch=True)
         self.tf_broadcaster = tf2_ros.TransformBroadcaster()
+
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+        rospy.loginfo("TF listener initialized.")
 
         self.load_point_clouds()
 
@@ -104,6 +108,14 @@ class PointCloudRegistrationNode:
         if o3d_pc.has_points():
             self.accumulated_clouds_list.append(o3d_pc)
 
+    def _transform_stamped_to_matrix(self, transform):
+        """将 geometry_msgs/TransformStamped 转换为 4x4 的 numpy 矩阵"""
+        t = transform.transform.translation
+        q = transform.transform.rotation
+        trans_matrix = tf_trans.translation_matrix((t.x, t.y, t.z))
+        rot_matrix = tf_trans.quaternion_matrix((q.x, q.y, q.z, q.w))
+        return np.dot(trans_matrix, rot_matrix)
+
     def handle_registration_request(self, req):
         start_time = time.time()
         response = RegisterPointCloudResponse()
@@ -121,30 +133,25 @@ class PointCloudRegistrationNode:
 
         try:
             if req.accumulation_seconds <= 0:
-                # accumulation_seconds 小于等于0，只获取当前一帧
                 rospy.loginfo("Getting a single point cloud frame.")
                 source_cloud_ros = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=5.0)
                 source_cloud_o3d = ros_pc2_to_o3d(source_cloud_ros)
                 source_frame_id = source_cloud_ros.header.frame_id
             else:
-                # accumulation_seconds 大于0，累积一段时间的点云
                 rospy.loginfo("Accumulating point clouds for %.2f seconds...", req.accumulation_seconds)
-                self.accumulated_clouds_list = [] # 清空上一次的数据
+                self.accumulated_clouds_list = []
 
-                # 先等待第一帧消息，以获取frame_id并确认话题可用
                 first_msg = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=2.0)
                 source_frame_id = first_msg.header.frame_id
                 
-                # 创建一个订阅器，在指定时间内接收消息
                 sub = rospy.Subscriber(self.pointcloud_topic, PointCloud2, self._accumulation_callback)
                 rospy.sleep(req.accumulation_seconds)
-                sub.unregister() # 停止接收
+                sub.unregister()
 
                 if not self.accumulated_clouds_list:
                     raise rospy.ROSException("No point clouds were accumulated.")
                 
                 rospy.loginfo("Accumulated %d clouds. Merging them...", len(self.accumulated_clouds_list))
-                # 将所有累积的点云合并成一个
                 for pc in self.accumulated_clouds_list:
                     source_cloud_o3d += pc
 
@@ -153,6 +160,23 @@ class PointCloudRegistrationNode:
             response.message = "Failed to get source point cloud: {}".format(e)
             rospy.logerr(response.message)
             return response
+
+        if req.frame and source_frame_id:
+            rospy.loginfo("Attempting to transform source cloud from '%s' to '%s'.", source_frame_id, req.frame)
+            try:
+                trans_stamped = self.tf_buffer.lookup_transform(req.frame, source_frame_id, rospy.Time(0), rospy.Duration(1.0))
+                tf_matrix = self._transform_stamped_to_matrix(trans_stamped)
+                source_cloud_o3d.transform(tf_matrix)
+                source_frame_id = req.frame
+                rospy.loginfo("Successfully transformed source cloud to frame '%s'.", req.frame)
+
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+                response.success = False
+                response.message = "TF transform from '{}' to '{}' failed: {}".format(source_frame_id, req.frame, e)
+                rospy.logerr(response.message)
+                return response
+        else:
+            rospy.loginfo("Skipping TF transform step. Reason: request frame or source frame_id is empty.")
 
         if not source_cloud_o3d.has_points():
             response.success = False
@@ -165,9 +189,9 @@ class PointCloudRegistrationNode:
                                req.crop_min_z == 0.0 and req.crop_max_z == 0.0)
 
         if is_default_crop_box:
-            rospy.loginfo("Applying default crop box: [-1, 1] for all axes.")
-            min_bound = (-1.0, -1.0, -1.0)
-            max_bound = (1.0, 1.0, 1.0)
+            rospy.loginfo("Applying default crop box: [-2, 2] for all axes.")
+            min_bound = (-2.0, -2.0, -2.0)
+            max_bound = (2.0, 2.0, 2.0)
         else:
             rospy.loginfo("Applying user-specified crop box.")
             min_bound = (req.crop_min_x, req.crop_min_y, req.crop_min_z)
@@ -188,7 +212,7 @@ class PointCloudRegistrationNode:
         rospy.loginfo("Cropping complete. Source points: %d, Target points: %d",
                     len(source_cloud_o3d.points), len(target_cloud_o3d.points))
         if req.voxel_size <= 0:
-            voxel_size = 0.05
+            voxel_size = 0.01
         else:
             voxel_size = req.voxel_size
 
@@ -254,6 +278,11 @@ class PointCloudRegistrationNode:
             rospy.logwarn(message)
             response.success = False
             response.message = message
+            # 即使 fitness 低，仍然发布点云以供调试
+            source_cloud_aligned_o3d = source_cloud_o3d.transform(transformation)
+            self.pub_target.publish(o3d_to_ros_pc2(target_cloud_o3d, self.pub_frame_id))
+            self.pub_source.publish(o3d_to_ros_pc2(source_cloud_o3d, source_frame_id))
+            self.pub_aligned.publish(o3d_to_ros_pc2(source_cloud_aligned_o3d, self.pub_frame_id))
             return response
 
         source_cloud_aligned_o3d = source_cloud_o3d.transform(transformation)
@@ -261,8 +290,6 @@ class PointCloudRegistrationNode:
         self.pub_target.publish(o3d_to_ros_pc2(target_cloud_o3d, self.pub_frame_id))
         self.pub_source.publish(o3d_to_ros_pc2(source_cloud_o3d, source_frame_id))
         self.pub_aligned.publish(o3d_to_ros_pc2(source_cloud_aligned_o3d, self.pub_frame_id))
-
-        # self.broadcast_transform(transformation, self.pub_frame_id, source_frame_id)
 
         response.success = True
         response.message = "Registration successful with fitness score: {:.4f}".format(icp_result.fitness)

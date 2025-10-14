@@ -8,5 +8,5 @@
         <param name="accumulation_seconds" value="1.0" />
         <param name="voxel_size" value="0.01" />
     </node>
-    
+
 </launch>

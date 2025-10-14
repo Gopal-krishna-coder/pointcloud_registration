@@ -155,3 +155,10 @@ transformation:
 ```
 
 ![reg](./resources/reg.png)
+
+
+---
+# Updata Logs
+
+* 2025-10-14: Add accumlate attribute when using point cloud registration;
+* 2025-10-13: Init repo;

@@ -11,6 +11,9 @@ float32 crop_min_y
 float32 crop_max_y
 float32 crop_min_z
 float32 crop_max_z
+
+# if <= 0, gets a single frame. if > 0, accumulates clouds for this duration in seconds.
+float32 accumulation_seconds
 ---
 # Response
 bool success

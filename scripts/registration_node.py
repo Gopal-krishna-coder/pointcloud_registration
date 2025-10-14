@@ -46,6 +46,7 @@ class PointCloudRegistrationNode:
         self.pub_frame_id = rospy.get_param("~pub_frame_id", "map")
 
         self.target_clouds = {}
+        self.accumulated_clouds_list = [] # 用于存储累积的点云
 
         self.pub_target = rospy.Publisher('~target_cloud', PointCloud2, queue_size=1, latch=True)
         self.pub_source = rospy.Publisher('~source_cloud', PointCloud2, queue_size=1, latch=True)
@@ -97,6 +98,12 @@ class PointCloudRegistrationNode:
             rospy.logerr(message)
             return TriggerResponse(success=False, message=message)
 
+    def _accumulation_callback(self, msg):
+        """订阅器的回调函数，将接收到的点云消息转换为o3d格式并添加到列表中"""
+        o3d_pc = ros_pc2_to_o3d(msg)
+        if o3d_pc.has_points():
+            self.accumulated_clouds_list.append(o3d_pc)
+
     def handle_registration_request(self, req):
         start_time = time.time()
         response = RegisterPointCloudResponse()
@@ -108,17 +115,50 @@ class PointCloudRegistrationNode:
             return response
 
         target_cloud_o3d = self.target_clouds[req.target_cloud_name]
+        
+        source_cloud_o3d = o3d.geometry.PointCloud()
+        source_frame_id = ""
 
         try:
-            rospy.loginfo("Waiting for a single point cloud message from topic: %s", self.pointcloud_topic)
-            source_cloud_ros = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=5.0)
+            if req.accumulation_seconds <= 0:
+                # accumulation_seconds 小于等于0，只获取当前一帧
+                rospy.loginfo("Getting a single point cloud frame.")
+                source_cloud_ros = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=5.0)
+                source_cloud_o3d = ros_pc2_to_o3d(source_cloud_ros)
+                source_frame_id = source_cloud_ros.header.frame_id
+            else:
+                # accumulation_seconds 大于0，累积一段时间的点云
+                rospy.loginfo("Accumulating point clouds for %.2f seconds...", req.accumulation_seconds)
+                self.accumulated_clouds_list = [] # 清空上一次的数据
+
+                # 先等待第一帧消息，以获取frame_id并确认话题可用
+                first_msg = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=2.0)
+                source_frame_id = first_msg.header.frame_id
+                
+                # 创建一个订阅器，在指定时间内接收消息
+                sub = rospy.Subscriber(self.pointcloud_topic, PointCloud2, self._accumulation_callback)
+                rospy.sleep(req.accumulation_seconds)
+                sub.unregister() # 停止接收
+
+                if not self.accumulated_clouds_list:
+                    raise rospy.ROSException("No point clouds were accumulated.")
+                
+                rospy.loginfo("Accumulated %d clouds. Merging them...", len(self.accumulated_clouds_list))
+                # 将所有累积的点云合并成一个
+                for pc in self.accumulated_clouds_list:
+                    source_cloud_o3d += pc
+
         except rospy.ROSException as e:
             response.success = False
             response.message = "Failed to get source point cloud: {}".format(e)
             rospy.logerr(response.message)
             return response
 
-        source_cloud_o3d = ros_pc2_to_o3d(source_cloud_ros)
+        if not source_cloud_o3d.has_points():
+            response.success = False
+            response.message = "Source point cloud is empty after capture/accumulation."
+            rospy.logerr(response.message)
+            return response
 
         is_default_crop_box = (req.crop_min_x == 0.0 and req.crop_max_x == 0.0 and \
                                req.crop_min_y == 0.0 and req.crop_max_y == 0.0 and \
@@ -204,10 +244,10 @@ class PointCloudRegistrationNode:
         if self.write_file:
             rospy.loginfo("Writting Source file...")
             full_path = os.path.join(self.pcd_path, "source.pcd")
-            open3d.io.write_point_cloud(full_path, source_down)
+            o3d.io.write_point_cloud(full_path, source_down)
             rospy.loginfo("Writting Target file...")
             full_path = os.path.join(self.pcd_path, "target.pcd")
-            open3d.io.write_point_cloud(full_path, target_down)
+            o3d.io.write_point_cloud(full_path, target_down)
 
         if icp_result.fitness < self.fitness:
             message = "ICP fitness score is too low ({}). Registration may be inaccurate.".format(icp_result.fitness)
@@ -217,12 +257,12 @@ class PointCloudRegistrationNode:
             return response
 
         source_cloud_aligned_o3d = source_cloud_o3d.transform(transformation)
-
+        
         self.pub_target.publish(o3d_to_ros_pc2(target_cloud_o3d, self.pub_frame_id))
-        self.pub_source.publish(o3d_to_ros_pc2(source_cloud_o3d, source_cloud_ros.header.frame_id))
+        self.pub_source.publish(o3d_to_ros_pc2(source_cloud_o3d, source_frame_id))
         self.pub_aligned.publish(o3d_to_ros_pc2(source_cloud_aligned_o3d, self.pub_frame_id))
 
-        self.broadcast_transform(transformation, self.pub_frame_id, source_cloud_ros.header.frame_id)
+        self.broadcast_transform(transformation, self.pub_frame_id, source_frame_id)
 
         response.success = True
         response.message = "Registration successful with fitness score: {:.4f}".format(icp_result.fitness)

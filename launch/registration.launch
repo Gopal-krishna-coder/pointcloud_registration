@@ -3,13 +3,15 @@
     <arg name="pointcloud_topic" default="/camera/depth_registered/points" />
     <arg name="write_file" default="false" />
     <arg name="rviz" default="true" />
-    <arg name="fitness" default=0.6 />
+    <arg name="fitness" default="0.6"/>
+    <arg name="accumulation_seconds" value="1.0" />
 
     <node name="pointcloud_registration_node" pkg="pointcloud_registration" type="registration_node.py" output="screen">
         <param name="pcd_path" value="$(arg pcd_path)" />
         <param name="pointcloud_topic" value="$(arg pointcloud_topic)" />
         <param name="write_file" value="$(arg write_file)" />
         <param name="fitness" value="$(arg fitness)" />
+        <param name="accumulation_seconds" value="$(arg accumulation_seconds)" />
         <param name="pub_frame_id" value="map" />
     </node>
 

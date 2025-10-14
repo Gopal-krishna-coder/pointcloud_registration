@@ -106,6 +106,13 @@ If you do not meet the above conditions, run the following node to collect the p
 (o3d) $ roslaunch pointcloud_registration allocate_pcd.launch
 ```
 
+The following variables in the launch file affect the quality of point cloud saving:
+
+该 launch 文件中以下变量会影响点云保存质量：
+
+* `accumulation_seconds`：The accumulation time of point cloud. The smaller the time, the sparser the point cloud. 累积点云时长，时间越小点云越稀疏；
+* `voxel_size`：Voxel filter size, the smaller the value, the finer the point cloud. 体素滤波大小，值越小点云越精细；
+
 Call the service and pass in the parameters. If you don't modify the `min max` parameters, the bounding box range will be used as `x=[-1.0,1.0], y=[-1.0,1.0], z=[-1.0,1.0]`:
 
 调用服务并传入参数，如果你不修改 `min max` 参数则会使用 bounding box 范围为 `x=[-1.0,1.0], y=[-1.0,1.0], z=[-1.0,1.0]`：
@@ -131,6 +138,14 @@ Before executing the script, you need to make sure that your target point cloud 
 ```bash
 (o3d) $ roslaunch pointcloud_registration registration.launch
 ```
+
+The following variables in the launch file will affect the registration results:
+
+该 launch 文件中以下几个变量将影响配准结果：
+
+* `fitness`：Registration confidence: when the registration coincidence is lower than this value, registration failure is returned. 配准置信度，当配准重合度低于这个值时返回配准失败；
+* `accumulation_seconds`：Source point cloud accumulation time. source 点云累积时长；
+* `voxel_size`：Voxel filter size. The smaller the value, the longer the registration takes, but the more accurate the registration. 体素滤波大小，该值越小配准耗时越长，但配准越精确；
 
 Call the service and pass the target point cloud file name as the `target_cloud_name` parameter:
 

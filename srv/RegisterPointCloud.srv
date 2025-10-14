@@ -2,7 +2,6 @@
 string target_cloud_name
 float32 voxel_size
 float32 max_correspondence_distance
-string frame
 
 # Optional Crop Box
 # If all are 0.0 (default), a [-1, 1] box will be used.

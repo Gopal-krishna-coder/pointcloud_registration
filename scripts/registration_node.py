@@ -43,7 +43,7 @@ class PointCloudRegistrationNode:
         self.pointcloud_topic = rospy.get_param('~pointcloud_topic', '/camera/depth_registered/points')
         self.write_file = rospy.get_param("~write_file", False)
         self.fitness = rospy.get_param("~fitness", 0.6)
-        self.pub_frame_id = rospy.get_param("~pub_frame_id", "map")
+        self.voxel_size = rospy.get_param("~voxel_size", 0.005)
 
         self.target_clouds = {}
         self.accumulated_clouds_list = []
@@ -117,215 +117,162 @@ class PointCloudRegistrationNode:
         return np.dot(trans_matrix, rot_matrix)
 
     def handle_registration_request(self, req):
-        start_time = time.time()
-        response = RegisterPointCloudResponse()
-
+        """
+        处理点云配准请求的核心函数。
+        1. 获取并验证目标点云。
+        2. 从ROS话题采集源点云（单帧或累积）。
+        3. 发布原始点云以供可视化。
+        4. 对点云进行预处理（裁剪、降采样、法线估计）。
+        5. 执行ICP配准。
+        6. 发布配准后的点云并返回变换矩阵。
+        """
+        rospy.loginfo("Received registration request for target: '%s'", req.target_cloud_name)
         if req.target_cloud_name not in self.target_clouds:
-            response.success = False
-            response.message = "Target cloud '{}' not found.".format(req.target_cloud_name)
-            rospy.logerr(response.message)
-            return response
-
-        target_cloud_o3d = self.target_clouds[req.target_cloud_name]
+            msg = "Target cloud '{}' not found. Available clouds: {}".format(
+                req.target_cloud_name, ', '.join(self.target_clouds.keys()))
+            rospy.logerr(msg)
+            return RegisterPointCloudResponse(success=False, message=msg)
         
-        source_cloud_o3d = o3d.geometry.PointCloud()
-        source_frame_id = ""
+        target_cloud = o3d.geometry.PointCloud(self.target_clouds[req.target_cloud_name])
+
+        rospy.loginfo("Acquiring source point cloud from topic: %s", self.pointcloud_topic)
+        source_cloud = o3d.geometry.PointCloud()
+        source_cloud_frame_id = ""
 
         try:
-            if req.accumulation_seconds <= 0:
-                rospy.loginfo("Getting a single point cloud frame.")
-                source_cloud_ros = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=5.0)
-                source_cloud_o3d = ros_pc2_to_o3d(source_cloud_ros)
-                source_frame_id = source_cloud_ros.header.frame_id
-            else:
-                rospy.loginfo("Accumulating point clouds for %.2f seconds...", req.accumulation_seconds)
-                self.accumulated_clouds_list = []
+            # 首先，等待一条消息以获取其 frame_id，后续所有发布都将使用此 frame
+            rospy.loginfo("Waiting for one message to determine frame_id...")
+            initial_msg = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=5.0)
+            source_cloud_frame_id = initial_msg.header.frame_id
+            rospy.loginfo("Source cloud frame_id is '%s'. All clouds will be published in this frame.", source_cloud_frame_id)
 
-                first_msg = rospy.wait_for_message(self.pointcloud_topic, PointCloud2, timeout=2.0)
-                source_frame_id = first_msg.header.frame_id
+            if req.accumulation_seconds <= 0:
+                rospy.loginfo("Capturing a single frame for the source cloud.")
+                source_cloud = ros_pc2_to_o3d(initial_msg)
+            else:
+                rospy.loginfo("Accumulating source clouds for %.2f seconds.", req.accumulation_seconds)
+                self.accumulated_clouds_list = []
                 
                 sub = rospy.Subscriber(self.pointcloud_topic, PointCloud2, self._accumulation_callback)
                 rospy.sleep(req.accumulation_seconds)
                 sub.unregister()
 
+                rospy.loginfo("Accumulated %d clouds.", len(self.accumulated_clouds_list))
                 if not self.accumulated_clouds_list:
-                    raise rospy.ROSException("No point clouds were accumulated.")
-                
-                rospy.loginfo("Accumulated %d clouds. Merging them...", len(self.accumulated_clouds_list))
+                    raise Exception("No point clouds were accumulated.")
+
+                # 将所有累积的点云合并成一个
+                merged_cloud = o3d.geometry.PointCloud()
                 for pc in self.accumulated_clouds_list:
-                    source_cloud_o3d += pc
+                    merged_cloud += pc
+                source_cloud = merged_cloud
 
-        except rospy.ROSException as e:
-            response.success = False
-            response.message = "Failed to get source point cloud: {}".format(e)
-            rospy.logerr(response.message)
-            return response
+            if not source_cloud.has_points():
+                raise Exception("Source cloud is empty after capture.")
 
-        if req.frame and source_frame_id:
-            rospy.loginfo("Attempting to transform source cloud from '%s' to '%s'.", source_frame_id, req.frame)
-            try:
-                trans_stamped = self.tf_buffer.lookup_transform(req.frame, source_frame_id, rospy.Time(0), rospy.Duration(1.0))
-                tf_matrix = self._transform_stamped_to_matrix(trans_stamped)
-                source_cloud_o3d.transform(tf_matrix)
-                source_frame_id = req.frame
-                rospy.loginfo("Successfully transformed source cloud to frame '%s'.", req.frame)
+        except Exception as e:
+            msg = "Failed to get source point cloud: %s" % e
+            rospy.logerr(msg)
+            return RegisterPointCloudResponse(success=False, message=msg)
 
-            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-                response.success = False
-                response.message = "TF transform from '{}' to '{}' failed: {}".format(source_frame_id, req.frame, e)
-                rospy.logerr(response.message)
-                return response
-        else:
-            rospy.loginfo("Skipping TF transform step. Reason: request frame or source frame_id is empty.")
+        rospy.loginfo("Publishing original target and source clouds.")
+        self.pub_target.publish(o3d_to_ros_pc2(target_cloud, source_cloud_frame_id))
+        self.pub_source.publish(o3d_to_ros_pc2(source_cloud, source_cloud_frame_id))
 
-        if not source_cloud_o3d.has_points():
-            response.success = False
-            response.message = "Source point cloud is empty after capture/accumulation."
-            rospy.logerr(response.message)
-            return response
-
-        is_default_crop_box = (req.crop_min_x == 0.0 and req.crop_max_x == 0.0 and \
-                               req.crop_min_y == 0.0 and req.crop_max_y == 0.0 and \
-                               req.crop_min_z == 0.0 and req.crop_max_z == 0.0)
-
-        if is_default_crop_box:
-            rospy.loginfo("Applying default crop box: [-2, 2] for all axes.")
-            min_bound = (-2.0, -2.0, -2.0)
-            max_bound = (2.0, 2.0, 2.0)
-        else:
-            rospy.loginfo("Applying user-specified crop box.")
-            min_bound = (req.crop_min_x, req.crop_min_y, req.crop_min_z)
-            max_bound = (req.crop_max_x, req.crop_max_y, req.crop_max_z)
+        rospy.loginfo("Preprocessing clouds...")
         
+        is_default_box = all(v == 0.0 for v in [
+            req.crop_min_x, req.crop_max_x, req.crop_min_y, req.crop_max_y,
+            req.crop_min_z, req.crop_max_z
+        ])
+        if is_default_box:
+            rospy.loginfo("Using default crop box [-2, 2, -2, 2, -2, 2].")
+            min_bound, max_bound = ([-2.0, -2.0, -2.0], [2.0, 2.0, 2.0])
+        else:
+            rospy.loginfo("Using user-defined crop box.")
+            min_bound = [req.crop_min_x, req.crop_min_y, req.crop_min_z]
+            max_bound = [req.crop_max_x, req.crop_max_y, req.crop_max_z]
+            
         bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
+        source_cloud_processed = source_cloud.crop(bbox)
+        target_cloud_processed = target_cloud.crop(bbox)
         
-        target_cloud_o3d = target_cloud_o3d.crop(bbox)
-        source_cloud_o3d = source_cloud_o3d.crop(bbox)
-        
-        if not source_cloud_o3d.has_points() or not target_cloud_o3d.has_points():
-            message = "One or both point clouds are empty after cropping. Adjust crop box or check source data."
-            rospy.logerr(message)
-            response.success = False
-            response.message = message
-            return response
-        
-        rospy.loginfo("Cropping complete. Source points: %d, Target points: %d",
-                    len(source_cloud_o3d.points), len(target_cloud_o3d.points))
+        if not source_cloud_processed.has_points() or not target_cloud_processed.has_points():
+            msg = "One or both clouds are empty after cropping. Adjust crop box."
+            rospy.logerr(msg)
+            return RegisterPointCloudResponse(success=False, message=msg)
+            
         if req.voxel_size <= 0:
-            voxel_size = 0.01
+            voxel_size = self.voxel_size
         else:
             voxel_size = req.voxel_size
-
-        rospy.loginfo("Downsampling point clouds with voxel size: %f", voxel_size)
-        target_down = target_cloud_o3d.voxel_down_sample(voxel_size=voxel_size)
-        source_down = source_cloud_o3d.voxel_down_sample(voxel_size=voxel_size)
-
-        if not source_down.has_points() or not target_down.has_points():
-            message = "Downsampling resulted in an empty point cloud. Check voxel_size or source data."
-            rospy.logerr(message)
-            response.success = False
-            response.message = message
-            return response
-
-        rospy.loginfo("Source cloud has %d points, target cloud has %d points after downsampling.",
-                    len(source_down.points), len(target_down.points))
+        
+        rospy.loginfo("Downsampling with voxel size: %.4f", voxel_size)
+        source_down = source_cloud_processed.voxel_down_sample(voxel_size)
+        target_down = target_cloud_processed.voxel_down_sample(voxel_size)
 
         rospy.loginfo("Estimating normals...")
-        target_down.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
-        source_down.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
-        
-        if not source_down.has_normals() or not target_down.has_normals():
-            message = "Failed to estimate normals. Check point cloud density or normal estimation parameters."
-            rospy.logerr(message)
-            response.success = False
-            response.message = message
-            return response
+        search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30)
+        source_down.estimate_normals(search_param)
+        target_down.estimate_normals(search_param)
 
         rospy.loginfo("Performing ICP registration...")
-        try:
-            if req.max_correspondence_distance <= 0:
-                max_correspondence_distance = 0.1
-            else:
-                max_correspondence_distance = req.max_correspondence_distance
-            
-            icp_result = o3d.pipelines.registration.registration_icp(
-                source_down, target_down, max_correspondence_distance,
-                np.identity(4),
-                o3d.pipelines.registration.TransformationEstimationPointToPlane()
-            )
-            print(f"ICP cost time: {time.time() - start_time:.3f} s")
-        except Exception as e:
-            error_message = "An error occurred during ICP: {}".format(e)
-            rospy.logerr(error_message)
-            response.success = False
-            response.message = error_message
-            return response
-
-        transformation = icp_result.transformation
-        rospy.loginfo("ICP Fitness: %f", icp_result.fitness)
-        rospy.loginfo("ICP Inlier RMSE: %f", icp_result.inlier_rmse)
-
-        if self.write_file:
-            rospy.loginfo("Writting Source file...")
-            full_path = os.path.join(self.pcd_path, "source.pcd")
-            o3d.io.write_point_cloud(full_path, source_down)
-            rospy.loginfo("Writting Target file...")
-            full_path = os.path.join(self.pcd_path, "target.pcd")
-            o3d.io.write_point_cloud(full_path, target_down)
-
-        if icp_result.fitness < self.fitness:
-            message = "ICP fitness score is too low ({}). Registration may be inaccurate.".format(icp_result.fitness)
-            rospy.logwarn(message)
-            response.success = False
-            response.message = message
-            # 即使 fitness 低，仍然发布点云以供调试
-            source_cloud_aligned_o3d = source_cloud_o3d.transform(transformation)
-            self.pub_target.publish(o3d_to_ros_pc2(target_cloud_o3d, self.pub_frame_id))
-            self.pub_source.publish(o3d_to_ros_pc2(source_cloud_o3d, source_frame_id))
-            self.pub_aligned.publish(o3d_to_ros_pc2(source_cloud_aligned_o3d, self.pub_frame_id))
-            return response
-
-        source_cloud_aligned_o3d = source_cloud_o3d.transform(transformation)
+        trans_init = np.identity(4)
         
-        self.pub_target.publish(o3d_to_ros_pc2(target_cloud_o3d, self.pub_frame_id))
-        self.pub_source.publish(o3d_to_ros_pc2(source_cloud_o3d, source_frame_id))
-        self.pub_aligned.publish(o3d_to_ros_pc2(source_cloud_aligned_o3d, self.pub_frame_id))
+        max_correspondence_distance = req.max_correspondence_distance
+        if max_correspondence_distance <= 0:
+            default_dist = voxel_size * 5 
+            rospy.logwarn(
+                "Invalid max_correspondence_distance (%.4f) received. "
+                "It must be positive. Using a default value of %.4f instead.",
+                max_correspondence_distance, default_dist
+            )
+            max_correspondence_distance = default_dist
+        
+        reg_result = o3d.pipelines.registration.registration_icp(
+            source_down, target_down, max_correspondence_distance, trans_init,
+            o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+            o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=2000))
 
-        response.success = True
-        response.message = "Registration successful with fitness score: {:.4f}".format(icp_result.fitness)
+        transformation_matrix = reg_result.transformation
+        rospy.loginfo("ICP Registration finished.")
+        rospy.loginfo("Fitness: %.4f", reg_result.fitness)
+        rospy.loginfo("Inlier RMSE: %.4f", reg_result.inlier_rmse)
+        rospy.loginfo("Transformation Matrix:\n%s", str(transformation_matrix))
 
-        trans = transformation[:3, 3]
-        quat = tf_trans.quaternion_from_matrix(transformation)
-        response.transformation.translation.x = trans[0]
-        response.transformation.translation.y = trans[1]
-        response.transformation.translation.z = trans[2]
-        response.transformation.rotation.x = quat[0]
-        response.transformation.rotation.y = quat[1]
-        response.transformation.rotation.z = quat[2]
-        response.transformation.rotation.w = quat[3]
+        if reg_result.fitness < self.fitness:
+            msg = "Registration failed: fitness score (%.4f) is below threshold (%.4f)." % (reg_result.fitness, self.fitness)
+            rospy.logwarn(msg)
+            return RegisterPointCloudResponse(success=False, message=msg)
 
-        return response
+        source_cloud_aligned = o3d.geometry.PointCloud(source_cloud)
+        source_cloud_aligned.transform(transformation_matrix)
 
-    def broadcast_transform(self, transformation, parent_frame, child_frame):
-        t = TransformStamped()
-        t.header.stamp = rospy.Time.now()
-        t.header.frame_id = parent_frame
-        t.child_frame_id = child_frame
+        rospy.loginfo("Publishing aligned cloud.")
+        self.pub_aligned.publish(o3d_to_ros_pc2(source_cloud_aligned, source_cloud_frame_id))
+        
+        if self.write_file:
+            filename = "aligned_{}_{}.pcd".format(req.target_cloud_name, int(time.time()))
+            filepath = os.path.join(self.pcd_path, filename)
+            rospy.loginfo("Writing aligned cloud to %s", filepath)
+            o3d.io.write_point_cloud(filepath, source_cloud_aligned)
 
-        translation = transformation[:3, 3]
-        rotation = tf_trans.quaternion_from_matrix(transformation)
+        trans = tf_trans.translation_from_matrix(transformation_matrix)
+        quat = tf_trans.quaternion_from_matrix(transformation_matrix)
 
-        t.transform.translation.x = translation[0]
-        t.transform.translation.y = translation[1]
-        t.transform.translation.z = translation[2]
-        t.transform.rotation.x = rotation[0]
-        t.transform.rotation.y = rotation[1]
-        t.transform.rotation.z = rotation[2]
-        t.transform.rotation.w = rotation[3]
+        transform_msg = Transform()
+        transform_msg.translation.x = trans[0]
+        transform_msg.translation.y = trans[1]
+        transform_msg.translation.z = trans[2]
+        transform_msg.rotation.x = quat[0]
+        transform_msg.rotation.y = quat[1]
+        transform_msg.rotation.z = quat[2]
+        transform_msg.rotation.w = quat[3]
 
-        self.tf_broadcaster.sendTransform(t)
-        rospy.loginfo("Published transform from '%s' to '%s'", parent_frame, child_frame)
-
+        msg = "Registration successful with fitness %.4f." % reg_result.fitness
+        rospy.loginfo(msg)
+        return RegisterPointCloudResponse(success=True, message=msg, transformation=transform_msg)
+    
 
 if __name__ == '__main__':
     try:

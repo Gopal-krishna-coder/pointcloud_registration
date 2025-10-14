@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Sensor1/Status1
         - /TF1/Frames1
       Splitter Ratio: 0.7029411792755127
     Tree Height: 719
@@ -188,7 +187,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: map
+    Fixed Frame: camera_link
     Frame Rate: 30
   Name: root
   Tools:
@@ -212,7 +211,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.473301887512207
+      Distance: 1.583021640777588
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -220,17 +219,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.13357539474964142
-        Y: -0.00568675622344017
-        Z: 0.6146421432495117
+        X: 0.0002777139889076352
+        Y: 0.05873691290616989
+        Z: 0.21267840266227722
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.285396933555603
+      Pitch: 0.35039690136909485
       Target Frame: <Fixed Frame>
-      Yaw: 2.1271815299987793
+      Yaw: 2.5671818256378174
     Saved: ~
 Window Geometry:
   Displays:

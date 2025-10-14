@@ -8,12 +8,15 @@ import numpy as np
 import open3d as o3d
 from collections import deque
 
+# 导入 TF 相关库
+import tf
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 
 from pointcloud_registration.srv import SaveAccumulatedCloud, SaveAccumulatedCloudResponse
 
 def ros_pc2_to_o3d(ros_pc2):
+    """ Utility function to convert ROS PointCloud2 to Open3D PointCloud. """
     gen = pc2.read_points(ros_pc2, skip_nans=True, field_names=("x", "y", "z"))
     points = np.array(list(gen))
     
@@ -30,10 +33,14 @@ class PointCloudAccumulatorNode:
         self.save_path = rospy.get_param('~save_path', 'pcd_files')
         self.pointcloud_topic = rospy.get_param('~pointcloud_topic', '/camera/depth_registered/points')
         self.accumulation_duration = rospy.Duration(rospy.get_param('~accumulation_seconds', 1.0))
-        self.voxel_size = rospy.get_param('~voxel_size', 0.01)
+        self.voxel_size = rospy.get_param('~voxel_size', 0.005)
 
         self.point_cloud_buffer = deque()
         self.lock = threading.Lock()
+
+        # ✨ --- 新增：初始化 TF Listener ---
+        self.tf_listener = tf.TransformListener()
+        # ------------------------------------
 
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
@@ -62,11 +69,26 @@ class PointCloudAccumulatorNode:
         full_path = os.path.join(self.save_path, filename)
         
         rospy.loginfo("Service called to save accumulated cloud to %s", full_path)
+        
+        is_default_bbox = (req.min_x == 0.0 and req.max_x == 0.0 and \
+                           req.min_y == 0.0 and req.max_y == 0.0 and \
+                           req.min_z == 0.0 and req.max_z == 0.0)
+
+        if is_default_bbox:
+            min_bound = (-2.0, -2.0, -2.0)
+            max_bound = (2.0, 2.0, 2.0)
+        else:
+            min_bound = (req.min_x, req.min_y, req.min_z)
+            max_bound = (req.max_x, req.max_y, req.max_z)
+        
+        rospy.loginfo("Detail informations:")
+        rospy.loginfo(f"\tBounding Box: x=[{min_bound[0], max_bound[0]}], y=[{min_bound[1], max_bound[1]}], z=[{min_bound[2], max_bound[2]}]")
+        rospy.loginfo(f"\tFrame: {req.frame}")
 
         clouds_to_process = []
         with self.lock:
             if not self.point_cloud_buffer:
-                message = f"No point clouds in the buffer to save, topic=[{self.pointcloud_topic}]"
+                message = "No point clouds in the buffer to save, topic=[{}]".format(self.pointcloud_topic)
                 rospy.logwarn(message)
                 return SaveAccumulatedCloudResponse(success=False, message=message)
             
@@ -81,26 +103,34 @@ class PointCloudAccumulatorNode:
             message = "Accumulated point cloud is empty."
             rospy.logwarn(message)
             return SaveAccumulatedCloudResponse(success=False, message=message)
+        
+        cloud_to_process = accumulated_cloud_o3d
+        source_frame = clouds_to_process[0].header.frame_id
+        target_frame = req.frame
 
-        is_default_bbox = (req.min_x == 0.0 and req.max_x == 0.0 and \
-                           req.min_y == 0.0 and req.max_y == 0.0 and \
-                           req.min_z == 0.0 and req.max_z == 0.0)
+        if target_frame and source_frame and target_frame != source_frame:
+            rospy.loginfo("Attempting to transform point cloud from '{}' to '{}'.".format(source_frame, target_frame))
+            try:
+                self.tf_listener.waitForTransform(target_frame, source_frame, rospy.Time(0), rospy.Duration(1.0))
+                (trans, rot) = self.tf_listener.lookupTransform(target_frame, source_frame, rospy.Time(0))
+                transform_matrix = self.tf_listener.fromTranslationRotation(trans, rot)
+                cloud_to_process.transform(transform_matrix)
+                rospy.loginfo("Successfully transformed point cloud.")
 
-        if is_default_bbox:
-            rospy.loginfo("No bounding box specified. Applying default box: [-1, 1] for all axes.")
-            min_bound = (-1.0, -1.0, -1.0)
-            max_bound = (1.0, 1.0, 1.0)
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+                message = "Failed to get transform from '{}' to '{}': {}".format(source_frame, target_frame, e)
+                rospy.logerr(message)
+                return SaveAccumulatedCloudResponse(success=False, message=message)
         else:
-            rospy.loginfo("Using user-specified bounding box.")
-            min_bound = (req.min_x, req.min_y, req.min_z)
-            max_bound = (req.max_x, req.max_y, req.max_z)
+            rospy.loginfo("Skipping TF transformation. Reason: target_frame or source_frame is empty, or they are the same.")
 
-        rospy.loginfo("Cropping point cloud with bounding box: min_bound=({:.2f}, {:.2f}, {:.2f}), max_bound=({:.2f}, {:.2f}, {:.2f})".format(
+        rospy.loginfo("Cropping point cloud in frame '{}' with bounding box: min=({:.2f}, {:.2f}, {:.2f}), max=({:.2f}, {:.2f}, {:.2f})".format(
+            target_frame if target_frame else source_frame,
             min_bound[0], min_bound[1], min_bound[2], max_bound[0], max_bound[1], max_bound[2]
         ))
         
         bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
-        cropped_cloud = accumulated_cloud_o3d.crop(bbox)
+        cropped_cloud = cloud_to_process.crop(bbox)
 
         if not cropped_cloud.has_points():
             message = "Point cloud is empty after applying the bounding box filter."

@@ -262,7 +262,7 @@ class PointCloudRegistrationNode:
         self.pub_source.publish(o3d_to_ros_pc2(source_cloud_o3d, source_frame_id))
         self.pub_aligned.publish(o3d_to_ros_pc2(source_cloud_aligned_o3d, self.pub_frame_id))
 
-        self.broadcast_transform(transformation, self.pub_frame_id, source_frame_id)
+        # self.broadcast_transform(transformation, self.pub_frame_id, source_frame_id)
 
         response.success = True
         response.message = "Registration successful with fitness score: {:.4f}".format(icp_result.fitness)

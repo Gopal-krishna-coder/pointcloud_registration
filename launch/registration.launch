@@ -6,6 +6,7 @@
     <arg name="fitness" default="0.6"/>
     <arg name="accumulation_seconds" value="1.0" />
     <arg name="voxel_size" value="0.005" />
+    <arg name="registration_attempts" value="3" />
 
     <node name="pointcloud_registration_node" pkg="pointcloud_registration" type="registration_node.py" output="screen">
         <param name="pcd_path" value="$(arg pcd_path)" />
@@ -14,6 +15,7 @@
         <param name="fitness" value="$(arg fitness)" />
         <param name="accumulation_seconds" value="$(arg accumulation_seconds)" />
         <param name="voxel_size" value="$(arg voxel_size)" />
+        <param name="registration_attempts" value="$(arg registration_attempts)" />
     </node>
 
     <!-- modify this -->

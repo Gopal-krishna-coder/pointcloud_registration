@@ -177,6 +177,7 @@ transformation:
 
 * 2025-10-17:
   * Add color point cloud allocator.
+  * Add registration operation attemps counts.
 * 2025-10-14: 
   * Add accumlate attribute when using point cloud registration;
   * Add tf transform when accumulate point cloud.

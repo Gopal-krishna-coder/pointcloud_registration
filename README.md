@@ -1,23 +1,20 @@
 # PointCloud Registration
 
-This package implements the ROS point cloud registration service node based on open3d.
-
-这个功能包是基于 open3d 实现了 ROS 点云配准服务节点。
-
-The functionality of this repository has been tested in the following alignments:
-
-该仓库的功能在以下配准中通过了测试：
+这个功能包是基于 open3d 实现了 ROS 点云配准服务节点。该仓库的功能在以下配准中通过了测试：
 
 |Device|Plantform|OS|ROS|
 |--|--|--|--|
 |Nvidia Jetson Orin| Arm64 | Ubuntu 20.04 | Noetic|
 
 
+If you want to read the English version, you can view this file: [ReadMe-EN](./resources/ReadMe-EN.md)
+
+如果你想要阅读英语版本可以查看这个文件：[ReadMe-EN](./resources/ReadMe-EN.md)
+
+
 ---
 
 # Contributors
-
-The hardware and testing facilities for this project were provided by the `Institute of Automation, Chinese Academy of Sciences`. The following individuals made significant contributions to the development of this project, and we would like to thank them for their efforts:
 
 该工程由 `中国科学院自动化研究所` 提供硬件与测试场地，同时以下人员在该项目的开发中做出了巨大贡献，在此感谢他们的付出：
 
@@ -25,11 +22,9 @@ The hardware and testing facilities for this project were provided by the `Insti
 
 
 ----
-# How to Use
+# 如何使用
 
-## Step1. Clone this repo
-
-Enter your workspace and pull the repository. Assume your workspace is `reg_ws`:
+## Step1. 拉取该仓库
 
 进入到你的工作空间中拉取该仓库，假设你的工作空间为 `reg_ws`：
 
@@ -40,9 +35,7 @@ $ git clone https://github.com/GaohaoZhou-ops/pointcloud_registration.git
 
 ---
 
-## Step2. Create conda env
-
-Create a new conda environment and install the following dependencies:
+## Step2. 创建虚拟环境
 
 新建一个 conda 环境并安装以下依赖:
 
@@ -53,9 +46,7 @@ $ pip install open3d pyyaml rospkg numpy==1.24.3
 
 ---
 
-## Step3. Build Workspace
-
-Return to the workspace directory and compile the space. After the compilation is successful, activate the conda environment:
+## Step3. 编译工作空间
 
 返回到工作空间目录下编译该空间，编译成功后激活 conda 环境：
 
@@ -67,9 +58,7 @@ Return to the workspace directory and compile the space. After the compilation i
 (base) $ conda activate o3d
 ```
 
-## Step4. [optional] Run Test
-
-Before using it, you can run the test script to ensure that the open3d registration function is normal. If you do not want to open the GUI interface, modify the `DISPLAY` variable in the script to `False`:
+## Step4. [可选] 运行测试样例
 
 在使用之前可以先运行测试脚本以确保 open3d 配准功能正常。如果你不想要打开 GUI 界面，修改脚本中的 `DISPLAY` 变量为 `False`：
 
@@ -77,12 +66,10 @@ Before using it, you can run the test script to ensure that the open3d registrat
 (o3d) $ python src/pointcloud_registration/scripts/test_without_ros.py demo
 ```
 
-|Before Reg|After Reg|
+|配准前|配准后|
 |--|--|
 |![before](./resources/official_init.png)|![after](./resources/official_reg.png)|
 
-
-If you get `Segmentation Fault` after running, it may be caused by the `numpy` version. Downgrade it to `1.xx` version:
 
 如果你在运行后遇到了 `Segmentation Fault` 问题，有可能是由于 `numpy` 版本导致的，将其降级为 `1.xx` 版本：
 
@@ -92,13 +79,9 @@ If you get `Segmentation Fault` after running, it may be caused by the `numpy` v
 
 ----
 
-## Step5. [optional] Create Target File
-
-We recommend using another open source RGBD reconstruction repository to create the target point cloud, or if you have an iPhone device with LiDAR, you can download the `3D Scanner` software from the App Store to scan the object of interest for reconstruction.
+## Step5. [可选] 构建target点云
 
 我们建议使另外一个开源的 RGBD 重建仓库创建 target 点云，或者如果你有带有 Lidar 的 iPhone 设备可以下载 App Store 中的 `3D Scanner` 软件扫描你感兴趣的物体用于重建。
-
-If you do not meet the above conditions, run the following node to collect the point cloud of the current frame:
 
 如果上述条件你都不具备，那么运行下面的节点来采集当前帧点云：
 
@@ -106,14 +89,11 @@ If you do not meet the above conditions, run the following node to collect the p
 (o3d) $ roslaunch pointcloud_registration allocate_pcd.launch
 ```
 
-The following variables in the launch file affect the quality of point cloud saving:
-
 该 launch 文件中以下变量会影响点云保存质量：
 
-* `accumulation_seconds`：The accumulation time of point cloud. The smaller the time, the sparser the point cloud. 累积点云时长，时间越小点云越稀疏；
-* `voxel_size`：Voxel filter size, the smaller the value, the finer the point cloud. 体素滤波大小，值越小点云越精细；
+* `accumulation_seconds`：累积点云时长，时间越小点云越稀疏；
+* `voxel_size`：体素滤波大小，值越小点云越精细；
 
-Call the service and pass in the parameters. If you don't modify the `min max` parameters, the bounding box range will be used as `x=[-1.0,1.0], y=[-1.0,1.0], z=[-1.0,1.0]`:
 
 调用服务并传入参数，如果你不修改 `min max` 参数则会使用 bounding box 范围为 `x=[-1.0,1.0], y=[-1.0,1.0], z=[-1.0,1.0]`：
 
@@ -129,9 +109,7 @@ message: "Successfully saved point cloud with 6705 points to /home/orin/Desktop/
 
 
 ---
-## Step6. Use Point Cloud Register
-
-Before executing the script, you need to make sure that your target point cloud file is in the `pcd_files` folder. If you need to save the target and source point clouds currently in use for debugging, you can modify the `write_file` parameter in the launch file.
+## Step6. 执行点云配准
 
 在执行脚本之前需要确保 `pcd_files` 文件夹中有你的 target 点云文件，如果你需要保存当前正在使用的 target 和 source 点云用于 debug，可以修改 launch 文件中的 `write_file` 参数。
 
@@ -139,16 +117,12 @@ Before executing the script, you need to make sure that your target point cloud 
 (o3d) $ roslaunch pointcloud_registration registration.launch
 ```
 
-The following variables in the launch file will affect the registration results:
-
 该 launch 文件中以下几个变量将影响配准结果：
 
-* `fitness`：Registration confidence: when the registration coincidence is lower than this value, registration failure is returned. 配准置信度，当配准重合度低于这个值时返回配准失败；
-* `accumulation_seconds`：Source point cloud accumulation time. source 点云累积时长；
-* `voxel_size`：Voxel filter size. The smaller the value, the longer the registration takes, but the more accurate the registration. 体素滤波大小，该值越小配准耗时越长，但配准越精确；
-* `registration_attempts`：The number of point cloud matches, the final result returned is the average of multiple matches; 点云匹配次数，最终返回的结果是多次匹配取平均值；
-
-Call the service and pass the target point cloud file name as the `target_cloud_name` parameter:
+* `fitness`：配准置信度，当配准重合度低于这个值时返回配准失败；
+* `accumulation_seconds`：点云累积时长；
+* `voxel_size`：体素滤波大小，该值越小配准耗时越长，但配准越精确；
+* `registration_attempts`：点云匹配次数，最终返回的结果是多次匹配取平均值；
 
 调用服务并将 target 点云文件名作为参数 `target_cloud_name` 传入：
 
@@ -174,12 +148,13 @@ transformation:
 
 
 ---
-# Updata Logs
+# 更新日志
 
 * 2025-10-17:
-  * Add color point cloud allocator.
-  * Add registration operation attemps counts.
+  * 在采集点云的时候可以选择采集着色点云；
+  * 在配准时添加了多次配准功能；
 * 2025-10-14: 
-  * Add accumlate attribute when using point cloud registration;
-  * Add tf transform when accumulate point cloud.
-* 2025-10-13: Init repo;
+  * 在采集点云时候添加了累积时间功能，使得点云采集更稠密；
+  * 在采集点云时添加了frame参数，可以采集指定坐标系下的点云；
+* 2025-10-13: 
+  * 初始化仓库；

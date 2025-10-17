@@ -105,7 +105,9 @@ success: True
 message: "Successfully saved point cloud with 6705 points to /home/orin/Desktop/point_reg/src/pointcloud_registration/pcd_files/demo.pcd"
 ```
 
-![demo](./resources/demo.png)
+|Pure Point Cloud|Colored Point Cloud|
+|---|---|
+|![pure_point_cloud](./resources/demo_pure_point.png)|![colored_point_cloud](./resources/demo_with_color.png)|
 
 
 ---

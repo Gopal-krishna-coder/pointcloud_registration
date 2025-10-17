@@ -175,6 +175,8 @@ transformation:
 ---
 # Updata Logs
 
+* 2025-10-17:
+  * Add color point cloud allocator.
 * 2025-10-14: 
   * Add accumlate attribute when using point cloud registration;
   * Add tf transform when accumulate point cloud.

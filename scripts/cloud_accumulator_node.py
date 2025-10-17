@@ -7,23 +7,64 @@ import threading
 import numpy as np
 import open3d as o3d
 from collections import deque
+import struct
+import ctypes
 
-# 导入 TF 相关库
 import tf
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 
 from pointcloud_registration.srv import SaveAccumulatedCloud, SaveAccumulatedCloudResponse
 
-def ros_pc2_to_o3d(ros_pc2):
-    """ Utility function to convert ROS PointCloud2 to Open3D PointCloud. """
-    gen = pc2.read_points(ros_pc2, skip_nans=True, field_names=("x", "y", "z"))
-    points = np.array(list(gen))
+def ros_pc2_to_o3d(ros_pc2, save_color=False):
+    """
+    Utility function to convert ROS PointCloud2 to Open3D PointCloud.
+    Now handles color information if 'rgb' field is present and save_color is True.
+    """
+    # Check if we should process color
+    has_color = False
+    if save_color:
+        field_names = [field.name for field in ros_pc2.fields]
+        if 'rgb' in field_names:
+            has_color = True
+            rospy.logdebug_once("Color information found in PointCloud2 topic. Processing color.")
+        else:
+            rospy.logwarn_once("'save_color' is True, but 'rgb' field not found in PointCloud2 message. Saving XYZ only.")
+
+    fields_to_read = ["x", "y", "z"]
+    if has_color:
+        fields_to_read.append("rgb")
     
+    point_generator = pc2.read_points(ros_pc2, skip_nans=True, field_names=fields_to_read)
+    points_list = list(point_generator)
+
     o3d_pc = o3d.geometry.PointCloud()
-    if points.shape[0] > 0:
-        o3d_pc.points = o3d.utility.Vector3dVector(points)
-    
+    if not points_list:
+        return o3d_pc
+
+    if has_color:
+        xyz = np.array([[p[0], p[1], p[2]] for p in points_list])
+        
+        rgb_packed = [p[3] for p in points_list]
+        rgb_colors = []
+        for packed_float in rgb_packed:
+            # Use struct to unpack the float into bytes, then reinterpret as an integer
+            s = struct.pack('>f', packed_float)
+            i = struct.unpack('>l', s)[0]
+            # Bitwise operations to extract R, G, B channels
+            r = (i >> 16) & 0xFF
+            g = (i >> 8) & 0xFF
+            b = i & 0xFF
+            # Normalize to [0, 1] for Open3D
+            rgb_colors.append([r / 255.0, g / 255.0, b / 255.0])
+        
+        colors = np.array(rgb_colors)
+        o3d_pc.points = o3d.utility.Vector3dVector(xyz)
+        o3d_pc.colors = o3d.utility.Vector3dVector(colors)
+    else:
+        xyz = np.array([[p[0], p[1], p[2]] for p in points_list])
+        o3d_pc.points = o3d.utility.Vector3dVector(xyz)
+        
     return o3d_pc
 
 class PointCloudAccumulatorNode:
@@ -34,13 +75,11 @@ class PointCloudAccumulatorNode:
         self.pointcloud_topic = rospy.get_param('~pointcloud_topic', '/camera/depth_registered/points')
         self.accumulation_duration = rospy.Duration(rospy.get_param('~accumulation_seconds', 1.0))
         self.voxel_size = rospy.get_param('~voxel_size', 0.005)
+        self.save_color = rospy.get_param('~save_color', False)
 
         self.point_cloud_buffer = deque()
         self.lock = threading.Lock()
-
-        # ✨ --- 新增：初始化 TF Listener ---
         self.tf_listener = tf.TransformListener()
-        # ------------------------------------
 
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
@@ -52,6 +91,8 @@ class PointCloudAccumulatorNode:
         rospy.loginfo("Point cloud accumulator is ready.")
         rospy.loginfo("Listening on topic: %s", self.pointcloud_topic)
         rospy.loginfo("Saving to directory: %s", self.save_path)
+        rospy.loginfo("Save color point clouds: %s", "Enabled" if self.save_color else "Disabled")
+
 
     def pc_callback(self, msg):
         with self.lock:
@@ -84,6 +125,7 @@ class PointCloudAccumulatorNode:
         rospy.loginfo("Detail informations:")
         rospy.loginfo(f"\tBounding Box: x=[{min_bound[0], max_bound[0]}], y=[{min_bound[1], max_bound[1]}], z=[{min_bound[2], max_bound[2]}]")
         rospy.loginfo(f"\tFrame: {req.frame}")
+        rospy.loginfo(f"\tDuration: {self.accumulation_duration:.3f} seconds.")
 
         clouds_to_process = []
         with self.lock:
@@ -95,8 +137,8 @@ class PointCloudAccumulatorNode:
             clouds_to_process = [msg for _, msg in self.point_cloud_buffer]
 
         accumulated_cloud_o3d = o3d.geometry.PointCloud()
-        for ros_pc2 in clouds_to_process:
-            o3d_pc = ros_pc2_to_o3d(ros_pc2)
+        for ros_pc2_msg in clouds_to_process:
+            o3d_pc = ros_pc2_to_o3d(ros_pc2_msg, self.save_color)
             accumulated_cloud_o3d += o3d_pc
         
         if not accumulated_cloud_o3d.has_points():

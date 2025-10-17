@@ -146,6 +146,7 @@ The following variables in the launch file will affect the registration results:
 * `fitness`：Registration confidence: when the registration coincidence is lower than this value, registration failure is returned. 配准置信度，当配准重合度低于这个值时返回配准失败；
 * `accumulation_seconds`：Source point cloud accumulation time. source 点云累积时长；
 * `voxel_size`：Voxel filter size. The smaller the value, the longer the registration takes, but the more accurate the registration. 体素滤波大小，该值越小配准耗时越长，但配准越精确；
+* `registration_attempts`：The number of point cloud matches, the final result returned is the average of multiple matches; 点云匹配次数，最终返回的结果是多次匹配取平均值；
 
 Call the service and pass the target point cloud file name as the `target_cloud_name` parameter:
 

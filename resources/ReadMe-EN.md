@@ -73,7 +73,7 @@ Before using it, you can run the test script to ensure that the open3d registrat
 
 |Before Reg|After Reg|
 |--|--|
-|![before](./resources/official_init.png)|![after](./resources/official_reg.png)|
+|![before](./official_init.png)|![after](./official_reg.png)|
 
 
 If you get `Segmentation Fault` after running, it may be caused by the `numpy` version. Downgrade it to `1.xx` version:
@@ -112,7 +112,7 @@ success: True
 message: "Successfully saved point cloud with 6705 points to /home/orin/Desktop/point_reg/src/pointcloud_registration/pcd_files/demo.pcd"
 ```
 
-![demo](./resources/demo.png)
+![demo](./demo.png)
 
 
 ---
@@ -154,7 +154,7 @@ transformation:
     w: 0.9978622401721878
 ```
 
-![reg](./resources/reg.png)
+![reg](./reg.png)
 
 
 ---

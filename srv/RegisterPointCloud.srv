@@ -20,3 +20,4 @@ float32 accumulation_seconds
 bool success
 string message
 geometry_msgs/Transform transformation
+float32 cost_time

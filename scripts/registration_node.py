@@ -122,6 +122,7 @@ class PointCloudRegistrationNode:
                 req.target_cloud_name, ', '.join(self.target_clouds.keys()))
             rospy.logerr(msg)
             return RegisterPointCloudResponse(success=False, message=msg)
+        reg_start_time = time.time()
         
         target_cloud = o3d.geometry.PointCloud(self.target_clouds[req.target_cloud_name])
 
@@ -266,9 +267,11 @@ class PointCloudRegistrationNode:
         transform_msg.rotation.z = avg_quat[2]
         transform_msg.rotation.w = avg_quat[3]
 
-        msg = "Registration successful. Averaged from {} successful attempts.".format(len(successful_translations))
+        msg = "Registration successful. Averaged from {} successful attempts".format(len(successful_translations))
         rospy.loginfo(msg)
-        return RegisterPointCloudResponse(success=True, message=msg, transformation=transform_msg)
+        cost_time = time.time() - reg_start_time
+        rospy.loginfo(f"Total cost time: {cost_time:.3f} seconds." )
+        return RegisterPointCloudResponse(success=True, message=msg, transformation=transform_msg, cost_time=cost_time)
 
 if __name__ == '__main__':
     try:

@@ -16,6 +16,7 @@
         <param name="accumulation_seconds" value="$(arg accumulation_seconds)" />
         <param name="voxel_size" value="$(arg voxel_size)" />
         <param name="registration_attempts" value="$(arg registration_attempts)" />
+        <rosparam param="initial_transform">[1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1]</rosparam>
     </node>
 
     <!-- modify this -->

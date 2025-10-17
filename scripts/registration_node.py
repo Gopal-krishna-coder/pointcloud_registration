@@ -47,8 +47,18 @@ class PointCloudRegistrationNode:
         self.write_file = rospy.get_param("~write_file", False)
         self.fitness = rospy.get_param("~fitness", 0.6)
         self.voxel_size = rospy.get_param("~voxel_size", 0.005)
-        # 新增：控制配准次数的参数，默认为1
         self.registration_attempts = rospy.get_param("~registration_attempts", 1)
+
+        # --- 新增：加载初始变换矩阵的参数 ---
+        # 默认值为一个4x4的单位矩阵（以行主序的列表形式）
+        initial_transform_list = rospy.get_param("~initial_transform", [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+        if len(initial_transform_list) == 16:
+            self.initial_transform_matrix = np.array(initial_transform_list).reshape(4, 4)
+            rospy.loginfo("Successfully loaded custom initial transformation matrix:\n%s", str(self.initial_transform_matrix))
+        else:
+            rospy.logwarn("Parameter '~initial_transform' must have 16 elements. Falling back to identity matrix.")
+            self.initial_transform_matrix = np.identity(4)
+        # --- 新增结束 ---
 
         # --- 内部变量 ---
         self.target_clouds = {}
@@ -173,6 +183,7 @@ class PointCloudRegistrationNode:
         successful_quaternions = []
         
         # 确定实际执行次数
+        rospy.loginfo("Collect point cloud done.")
         rospy.loginfo("Starting registration process for %d attempt(s).", registration_attempts)
         
         for attempt in range(registration_attempts):
@@ -200,10 +211,10 @@ class PointCloudRegistrationNode:
             source_down.estimate_normals(search_param)
             target_down.estimate_normals(search_param)
 
-            # ICP 配准
+            # --- 使用 self.initial_transform_matrix 作为初始变换 ---
             max_correspondence_distance = req.max_correspondence_distance if req.max_correspondence_distance > 0 else voxel_size * 5
             reg_result = o3d.pipelines.registration.registration_icp(
-                source_down, target_down, max_correspondence_distance, np.identity(4),
+                source_down, target_down, max_correspondence_distance, self.initial_transform_matrix,
                 o3d.pipelines.registration.TransformationEstimationPointToPlane(),
                 o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=2000))
 

